@@ -34,6 +34,21 @@ class EvidenceController extends Controller
         return response()->json(['evidence_id' => $evidence->getKey(), 'integrity_valid' => $valid, 'status' => $evidence->fresh()->status]);
     }
 
+    public function createWorkingCopy(Request $request, Evidence $evidence, EvidenceService $evidenceService): JsonResponse
+    {
+        $this->authorize('download', $evidence);
+
+        return response()->json($evidenceService->createWorkingCopy($evidence, $request->user()));
+    }
+
+    public function download(Request $request, Evidence $evidence, EvidenceService $evidenceService)
+    {
+        $this->authorize('download', $evidence);
+        $evidenceService->recordDownload($evidence, $request->user());
+
+        return response()->download(storage_path('app/private/'.$evidence->storage_key), $evidence->original_filename ?? $evidence->name);
+    }
+
     public function custody(Evidence $evidence): JsonResponse
     {
         $this->authorize('view', $evidence);

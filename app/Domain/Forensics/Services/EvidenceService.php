@@ -84,4 +84,32 @@ class EvidenceService
 
         return $valid;
     }
+
+    public function createWorkingCopy(Evidence $evidence, User $actor): Evidence
+    {
+        $disk = Storage::disk($evidence->storage_disk);
+        $extension = pathinfo($evidence->storage_key, PATHINFO_EXTENSION) ?: 'bin';
+        $key = "evidence/{$evidence->case_id}/{$evidence->evidence_number}/working/".Str::ulid()."/input.{$extension}";
+
+        if (! $disk->copy($evidence->storage_key, $key)) {
+            throw new \RuntimeException('Unable to create controlled evidence working copy.');
+        }
+
+        $hash = $this->hashes->calculateSha256($disk->path($key));
+        $evidence->update([
+            'working_copy_key' => $key,
+            'working_copy_hash' => $hash,
+            'working_copy_created_at' => now(),
+        ]);
+        $this->custody->record($evidence, $actor, 'working_copy_created', 'evidence.working_copy_created', ['working_copy_key' => $key, 'sha256' => $hash]);
+        $this->audit->record($actor, 'evidence.working_copy_created', $evidence);
+
+        return $evidence->fresh();
+    }
+
+    public function recordDownload(Evidence $evidence, User $actor): void
+    {
+        $this->custody->record($evidence, $actor, 'accessed', 'evidence.download_requested');
+        $this->audit->record($actor, 'evidence.download_requested', $evidence);
+    }
 }

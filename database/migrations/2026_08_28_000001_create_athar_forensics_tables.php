@@ -38,6 +38,9 @@ return new class extends Migration
             $table->string('type', 64)->index();
             $table->string('storage_disk', 64)->default('private');
             $table->string('storage_key')->unique();
+            $table->string('working_copy_key')->nullable()->unique();
+            $table->string('working_copy_hash', 128)->nullable();
+            $table->timestamp('working_copy_created_at')->nullable();
             $table->unsignedBigInteger('size_bytes');
             $table->string('mime_type', 255)->nullable();
             $table->string('source', 255)->nullable();

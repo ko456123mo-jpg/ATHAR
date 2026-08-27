@@ -36,6 +36,12 @@ class CaseAndEvidenceApiTest extends TestCase
         $this->assertDatabaseCount('evidence_hashes', 1);
         $this->assertDatabaseCount('chain_of_custody', 1);
         $this->assertDatabaseHas('audit_logs', ['action' => 'evidence.registered']);
+
+        $evidenceId = $evidenceResponse->json('id');
+        $this->actingAs($investigator)->postJson('/api/v1/evidence/'.$evidenceId.'/working-copy')
+            ->assertOk()
+            ->assertJsonPath('id', $evidenceId);
+        $this->assertDatabaseHas('chain_of_custody', ['event_type' => 'working_copy_created']);
     }
 
     public function test_reviewer_cannot_create_cases_or_register_evidence(): void

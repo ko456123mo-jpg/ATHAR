@@ -1,0 +1,79 @@
+<?php
+
+namespace Tests\Feature\Forensics;
+
+use App\Models\Evidence;
+use App\Models\ForensicAgent;
+use App\Models\ForensicTool;
+use App\Models\InvestigationCase;
+use App\Models\ToolOperation;
+use App\Models\User;
+use Database\Seeders\ToolRegistrySeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Tests\TestCase;
+
+class AnalysisJobAndAgentApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_allowlisted_tshark_job_is_claimed_and_completed_by_authenticated_agent(): void
+    {
+        Storage::fake('private');
+        $this->seed(ToolRegistrySeeder::class);
+        $investigator = User::factory()->create(['role' => 'investigator']);
+        $case = InvestigationCase::query()->create(['case_number' => 'ATH-JOB-001', 'name' => 'TShark POC', 'created_by' => $investigator->id]);
+        $case->members()->attach($investigator->id, ['role_in_case' => 'lead']);
+        $evidence = Evidence::query()->create([
+            'case_id' => $case->id,
+            'evidence_number' => 'EVD-JOB-001',
+            'name' => 'Benign PCAP',
+            'type' => 'pcap',
+            'storage_key' => 'evidence/1/EVD-JOB-001/original.pcap',
+            'size_bytes' => 8,
+            'status' => 'verified',
+            'uploaded_by' => $investigator->id,
+        ]);
+        Storage::disk('private')->put($evidence->storage_key, 'pcapdata');
+        $tool = ForensicTool::query()->where('slug', 'tshark')->firstOrFail();
+        $operation = ToolOperation::query()->where('tool_id', $tool->id)->where('operation_key', 'packet_summary')->firstOrFail();
+
+        $create = $this->actingAs($investigator)->postJson('/api/v1/cases/'.$case->id.'/analysis-jobs', [
+            'evidence_id' => $evidence->id,
+            'tool_id' => $tool->id,
+            'operation_id' => $operation->id,
+            'parameters' => [],
+        ]);
+        $create->assertAccepted()->assertJsonPath('status', 'queued');
+        $jobId = $create->json('public_id');
+
+        $token = 'agent-test-token';
+        $agent = ForensicAgent::query()->create(['name' => 'caine-test', 'token_hash' => Hash::make($token), 'status' => 'offline']);
+        $this->withToken($token)->postJson('/api/v1/agent/heartbeat', ['hostname' => 'caine-vbox-test'])->assertOk();
+        $claim = $this->withToken($token)->postJson('/api/v1/agent/jobs/claim');
+        $claim->assertOk()->assertJsonPath('job_id', $jobId)->assertJsonPath('tool_id', 'tshark')->assertJsonPath('operation_key', 'packet_summary');
+
+        $this->withToken($token)->postJson('/api/v1/agent/jobs/'.$jobId.'/status', ['status' => 'running'])->assertOk()->assertJsonPath('status', 'running');
+        $result = $this->withToken($token)->postJson('/api/v1/agent/jobs/'.$jobId.'/result', [
+            'raw_output' => "frame.number,frame.time_epoch\n1,1720000000.0",
+            'parsed_result' => [['frame_number' => 1, 'timestamp' => '1720000000.0', 'protocol' => 'DNS']],
+            'tool_version' => '4.x-test',
+            'adapter_version' => '0.1.0',
+            'exit_code' => 0,
+        ]);
+        $result->assertCreated()->assertJsonPath('tool_version', '4.x-test');
+
+        $this->assertDatabaseHas('analysis_jobs', ['public_id' => $jobId, 'agent_id' => $agent->id, 'status' => 'completed']);
+        $this->assertDatabaseCount('analysis_results', 1);
+        $this->assertDatabaseHas('chain_of_custody', ['event_type' => 'analysis_requested']);
+        $this->assertDatabaseHas('chain_of_custody', ['event_type' => 'analysis_result_created']);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'agent.result_submitted']);
+    }
+
+    public function test_agent_endpoint_rejects_missing_or_invalid_token(): void
+    {
+        $this->postJson('/api/v1/agent/heartbeat')->assertUnauthorized();
+        $this->withToken('invalid-agent-token')->postJson('/api/v1/agent/heartbeat')->assertUnauthorized();
+    }
+}
