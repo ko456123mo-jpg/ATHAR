@@ -73,4 +73,13 @@ class AnalysisJobController extends Controller
 
         return response()->json($job);
     }
+
+    public function retry(Request $request, AnalysisJob $job, AnalysisJobStateMachine $states, AuditLogger $audit): JsonResponse
+    {
+        $this->authorize('update', $job->investigationCase);
+        $job = $states->retry($job);
+        $audit->record($request->user(), 'analysis.job_retried', $job);
+
+        return response()->json($job);
+    }
 }

@@ -36,4 +36,24 @@ class AnalysisJobStateMachine
 
         return $job->fresh();
     }
+
+    public function retry(AnalysisJob $job): AnalysisJob
+    {
+        if (! in_array($job->status, ['failed', 'timed_out'], true) || $job->attempt_count >= $job->max_attempts) {
+            throw ValidationException::withMessages(['status' => 'Job is not eligible for retry.']);
+        }
+
+        $job->update([
+            'status' => 'queued',
+            'agent_id' => null,
+            'claimed_at' => null,
+            'started_at' => null,
+            'finished_at' => null,
+            'exit_code' => null,
+            'error_message' => null,
+            'queued_at' => now(),
+        ]);
+
+        return $job->fresh();
+    }
 }

@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\ForensicTool;
 use App\Models\ToolCategory;
 use App\Models\ToolOperation;
+use App\Models\ToolVersion;
 use Illuminate\Database\Seeder;
 
 class ToolRegistrySeeder extends Seeder
@@ -32,10 +33,14 @@ class ToolRegistrySeeder extends Seeder
                     'category_id' => $category->getKey(),
                     'name' => $name,
                     'adapter_key' => $slug,
-                    'verification_state' => $isTshark ? 'installed_path_observed' : 'cataloged',
+                    'verification_state' => 'cataloged',
                     'enabled' => $isTshark,
                 ]);
                 if ($isTshark) {
+                    ToolVersion::query()->updateOrCreate(['tool_id' => $tool->getKey(), 'path' => '/usr/bin/tshark'], [
+                        'status' => 'path_observed',
+                        'verified_at' => now(),
+                    ]);
                     ToolOperation::query()->updateOrCreate(['tool_id' => $tool->getKey(), 'operation_key' => 'packet_summary'], [
                         'evidence_types_json' => ['pcap', 'pcapng'],
                         'input_schema_json' => [],
