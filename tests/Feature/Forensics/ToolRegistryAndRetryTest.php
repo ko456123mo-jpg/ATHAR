@@ -40,4 +40,19 @@ class ToolRegistryAndRetryTest extends TestCase
 
         $this->actingAs($user)->postJson('/api/v1/analysis-jobs/'.$job->public_id.'/retry')->assertOk()->assertJsonPath('status', 'queued');
     }
+
+    public function test_administrator_can_manage_category_operation_and_version_evidence_while_evidence_type_allowlist_is_enforced(): void
+    {
+        $this->seed(ToolRegistrySeeder::class);
+        $administrator = User::factory()->create(['role' => 'administrator']);
+        $investigator = User::factory()->create(['role' => 'investigator']);
+        $category = $this->actingAs($administrator)->postJson('/api/v1/tool-categories', ['name' => 'Custom Analysis', 'description' => 'Controlled test category'])->assertCreated()->json();
+        $tool = $this->actingAs($administrator)->postJson('/api/v1/tools', ['category_id' => $category['id'], 'name' => 'Metadata Scanner', 'adapter_key' => 'metadata.scanner'])->assertCreated()->json();
+        $operation = $this->actingAs($administrator)->postJson('/api/v1/tools/'.$tool['id'].'/operations', ['operation_key' => 'scan', 'evidence_types' => ['file'], 'timeout_seconds' => 60, 'max_output_bytes' => 1048576, 'enabled' => false])->assertCreated()->json();
+        $this->assertSame(['file'], $operation['evidence_types_json']);
+        $this->actingAs($administrator)->postJson('/api/v1/tools/'.$tool['id'].'/verification', ['verification_state' => 'configured'])->assertOk();
+        $this->actingAs($administrator)->postJson('/api/v1/tools/'.$tool['id'].'/verification', ['verification_state' => 'installed', 'version' => '1.2.3', 'path' => '/opt/metadata-scanner'])->assertOk();
+        $this->assertDatabaseHas('tool_versions', ['tool_id' => $tool['id'], 'path' => '/opt/metadata-scanner', 'version' => '1.2.3']);
+        $this->actingAs($investigator)->postJson('/api/v1/tool-categories', ['name' => 'Not allowed'])->assertForbidden();
+    }
 }

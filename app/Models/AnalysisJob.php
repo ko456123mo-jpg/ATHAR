@@ -19,4 +19,5 @@ class AnalysisJob extends Model
     public function requester(): BelongsTo { return $this->belongsTo(User::class, 'requested_by'); }
     public function parameters(): HasMany { return $this->hasMany(AnalysisParameter::class); }
     public function results(): HasMany { return $this->hasMany(AnalysisResult::class); }
+    public function getRouteKeyName(): string { return 'public_id'; }
 }

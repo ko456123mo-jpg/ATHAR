@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\EvidenceController;
 use App\Http\Controllers\Api\ForensicAgentController;
 use App\Http\Controllers\Api\AnalysisJobController;
 use App\Http\Controllers\Api\ToolRegistryController;
+use App\Http\Controllers\Api\FindingController;
+use App\Http\Controllers\Api\ReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth')->group(function (): void {
@@ -22,9 +24,16 @@ Route::middleware('auth')->group(function (): void {
     Route::post('v1/analysis-jobs/{job:public_id}/cancel', [AnalysisJobController::class, 'cancel']);
     Route::post('v1/analysis-jobs/{job:public_id}/retry', [AnalysisJobController::class, 'retry']);
     Route::get('v1/tool-categories', [ToolRegistryController::class, 'categories']);
+    Route::post('v1/tool-categories', [ToolRegistryController::class, 'storeCategory'])->can('manage-tools');
     Route::get('v1/tools', [ToolRegistryController::class, 'index']);
     Route::post('v1/tools', [ToolRegistryController::class, 'store'])->can('manage-tools');
+    Route::post('v1/tools/{tool}/operations', [ToolRegistryController::class, 'storeOperation'])->can('manage-tools');
     Route::post('v1/tools/{tool}/verification', [ToolRegistryController::class, 'recordVerification'])->can('manage-tools');
+    Route::post('v1/cases/{case}/findings', [FindingController::class, 'store']);
+    Route::post('v1/findings/{finding}/review', [FindingController::class, 'review'])->can('review-findings');
+    Route::post('v1/cases/{case}/reports', [ReportController::class, 'store']);
+    Route::post('v1/reports/{report}/approve', [ReportController::class, 'approve'])->can('review-findings');
+    Route::get('v1/reports/{report}', [ReportController::class, 'show']);
 });
 
 Route::prefix('v1/agent')->middleware('agent.token')->group(function (): void {

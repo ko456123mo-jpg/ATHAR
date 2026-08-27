@@ -1,30 +1,40 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="ar" dir="rtl">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('app.name', 'Laravel') }}</title>
+        <title>ATHAR — الوصول الآمن</title>
 
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
-
-        <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans text-gray-900 antialiased">
-        <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-gray-100">
-            <div>
-                <a href="/">
-                    <x-application-logo class="w-20 h-20 fill-current text-gray-500" />
+    <body class="athar-auth-body antialiased">
+        <main class="athar-auth-shell">
+            <section class="athar-auth-intro" aria-label="تعريف المنصة">
+                <a href="{{ url('/') }}" class="athar-brand">
+                    <span class="athar-brand-mark">A</span>
+                    <span>ATHAR<small>Digital Forensics</small></span>
                 </a>
-            </div>
+                <div>
+                    <p class="athar-kicker">ACCESS CONTROL · EVIDENCE FIRST</p>
+                    <h1>الوصول إلى مساحة<br>تحقيق <em>موثوقة.</em></h1>
+                    <p>دخول محكوم بالصلاحيات إلى القضايا والأدلة وسجل الحيازة، مع بقاء قرار التحليل والمراجعة بيد الفريق المختص.</p>
+                </div>
+                <div class="athar-auth-control">
+                    <span>SHA-256</span><span>Chain of Custody</span><span>Human Review</span>
+                </div>
+            </section>
 
-            <div class="w-full sm:max-w-md mt-6 px-6 py-4 bg-white shadow-md overflow-hidden sm:rounded-lg">
+            <section class="athar-auth-panel" aria-label="المصادقة">
+                <div class="athar-auth-panel-heading">
+                    <p class="athar-kicker">AUTHENTICATED ACCESS</p>
+                    <h2>تسجيل الدخول</h2>
+                    <p>أدخل بيانات الاعتماد المصرح بها للمتابعة.</p>
+                </div>
                 {{ $slot }}
-            </div>
-        </div>
+                <a class="athar-auth-return" href="{{ url('/') }}">العودة إلى ATHAR ←</a>
+            </section>
+        </main>
     </body>
 </html>

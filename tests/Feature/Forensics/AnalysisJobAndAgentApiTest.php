@@ -76,4 +76,30 @@ class AnalysisJobAndAgentApiTest extends TestCase
         $this->postJson('/api/v1/agent/heartbeat')->assertUnauthorized();
         $this->withToken('invalid-agent-token')->postJson('/api/v1/agent/heartbeat')->assertUnauthorized();
     }
+
+    public function test_agent_result_submission_rejects_oversized_or_malformed_data_and_foreign_agent_access(): void
+    {
+        Storage::fake('private');
+        $this->seed(ToolRegistrySeeder::class);
+        $investigator = User::factory()->create(['role' => 'investigator']);
+        $case = InvestigationCase::query()->create(['case_number' => 'ATH-JOB-NEGATIVE', 'name' => 'Negative API test', 'created_by' => $investigator->id]);
+        $case->members()->attach($investigator->id, ['role_in_case' => 'lead']);
+        $evidence = Evidence::query()->create(['case_id' => $case->id, 'evidence_number' => 'EVD-NEGATIVE', 'name' => 'PCAP', 'type' => 'pcap', 'storage_key' => 'evidence/test.pcap', 'size_bytes' => 8, 'status' => 'verified', 'uploaded_by' => $investigator->id]);
+        $tool = ForensicTool::query()->where('slug', 'tshark')->firstOrFail();
+        $operation = ToolOperation::query()->where('tool_id', $tool->id)->where('operation_key', 'packet_summary')->firstOrFail();
+        $operation->update(['max_output_bytes' => 10]);
+        $jobId = $this->actingAs($investigator)->postJson('/api/v1/cases/'.$case->id.'/analysis-jobs', ['evidence_id' => $evidence->id, 'tool_id' => $tool->id, 'operation_id' => $operation->id, 'parameters' => []])->json('public_id');
+        $firstToken = 'first-agent-token';
+        $secondToken = 'second-agent-token';
+        ForensicAgent::query()->create(['name' => 'caine-one', 'token_hash' => Hash::make($firstToken), 'status' => 'online']);
+        ForensicAgent::query()->create(['name' => 'caine-two', 'token_hash' => Hash::make($secondToken), 'status' => 'online']);
+        $this->withToken($firstToken)->postJson('/api/v1/agent/jobs/claim')->assertOk();
+        $payload = ['raw_output' => str_repeat('x', 11), 'parsed_result' => [], 'tool_version' => '4.0', 'adapter_version' => '0.1.0', 'exit_code' => 0];
+        $this->withToken($firstToken)->postJson('/api/v1/agent/jobs/'.$jobId.'/result', $payload)->assertUnprocessable();
+        $payload['raw_output'] = 'ok';
+        $payload['parsed_result'] = 'not-an-array';
+        $this->withToken($firstToken)->postJson('/api/v1/agent/jobs/'.$jobId.'/result', $payload)->assertUnprocessable();
+        $payload['parsed_result'] = [];
+        $this->withToken($secondToken)->postJson('/api/v1/agent/jobs/'.$jobId.'/result', $payload)->assertForbidden();
+    }
 }
