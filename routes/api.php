@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\CaseController;
 use App\Http\Controllers\Api\EvidenceController;
 use App\Http\Controllers\Api\ForensicAgentController;
+use App\Http\Controllers\Api\ForensicAgentManagementController;
 use App\Http\Controllers\Api\AnalysisJobController;
 use App\Http\Controllers\Api\ToolRegistryController;
 use App\Http\Controllers\Api\FindingController;
@@ -34,6 +35,10 @@ Route::middleware('auth')->group(function (): void {
     Route::post('v1/cases/{case}/reports', [ReportController::class, 'store']);
     Route::post('v1/reports/{report}/approve', [ReportController::class, 'approve'])->can('review-findings');
     Route::get('v1/reports/{report}', [ReportController::class, 'show']);
+    Route::get('v1/agents', [ForensicAgentManagementController::class, 'index'])->can('manage-agents');
+    Route::post('v1/agents', [ForensicAgentManagementController::class, 'store'])->can('manage-agents');
+    Route::post('v1/agents/{agent}/rotate-token', [ForensicAgentManagementController::class, 'rotateToken'])->can('manage-agents');
+    Route::post('v1/agents/{agent}/retire', [ForensicAgentManagementController::class, 'retire'])->can('manage-agents');
 });
 
 Route::prefix('v1/agent')->middleware('agent.token')->group(function (): void {
