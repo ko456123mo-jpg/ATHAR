@@ -15,6 +15,7 @@ use App\Models\ToolOperation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class AnalysisJobController extends Controller
@@ -32,6 +33,9 @@ class AnalysisJobController extends Controller
         $evidence = Evidence::query()->whereKey($data['evidence_id'])->where('case_id', $case->getKey())->firstOrFail();
         $tool = ForensicTool::query()->whereKey($data['tool_id'])->where('enabled', true)->firstOrFail();
         $operation = ToolOperation::query()->whereKey($data['operation_id'])->where('tool_id', $tool->getKey())->where('enabled', true)->firstOrFail();
+        if (! $evidence->working_copy_key || ! Storage::disk(config('forensics.evidence_disk'))->exists($evidence->working_copy_key)) {
+            return response()->json(['message' => 'A verified working copy is required before analysis can be queued.'], 422);
+        }
         if (! in_array($evidence->type, $operation->evidence_types_json ?? [], true)) {
             return response()->json(['message' => 'Evidence type is not allowed for this operation.'], 422);
         }

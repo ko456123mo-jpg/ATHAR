@@ -13,6 +13,8 @@
         <div class="min-h-screen lg:flex">
             @include('layouts.navigation')
             <main class="min-w-0 flex-1 p-5 lg:p-9">
+                @if(session('status'))<div class="athar-flash" role="status">{{ session('status') }}</div>@endif
+                @if($errors->any())<div class="athar-flash athar-flash-error" role="alert">{{ $errors->first() }}</div>@endif
                 {{ $slot }}
             </main>
         </div>

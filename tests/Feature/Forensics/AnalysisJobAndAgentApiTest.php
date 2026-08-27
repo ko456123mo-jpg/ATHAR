@@ -36,6 +36,8 @@ class AnalysisJobAndAgentApiTest extends TestCase
             'uploaded_by' => $investigator->id,
         ]);
         Storage::disk('private')->put($evidence->storage_key, 'pcapdata');
+        $evidence->update(['working_copy_key' => 'working-copies/1/EVD-JOB-001/analysis.pcap']);
+        Storage::disk('private')->put($evidence->working_copy_key, 'pcapdata');
         $tool = ForensicTool::query()->where('slug', 'tshark')->firstOrFail();
         $operation = ToolOperation::query()->where('tool_id', $tool->id)->where('operation_key', 'packet_summary')->firstOrFail();
 
@@ -85,6 +87,8 @@ class AnalysisJobAndAgentApiTest extends TestCase
         $case = InvestigationCase::query()->create(['case_number' => 'ATH-JOB-NEGATIVE', 'name' => 'Negative API test', 'created_by' => $investigator->id]);
         $case->members()->attach($investigator->id, ['role_in_case' => 'lead']);
         $evidence = Evidence::query()->create(['case_id' => $case->id, 'evidence_number' => 'EVD-NEGATIVE', 'name' => 'PCAP', 'type' => 'pcap', 'storage_key' => 'evidence/test.pcap', 'size_bytes' => 8, 'status' => 'verified', 'uploaded_by' => $investigator->id]);
+        $evidence->update(['working_copy_key' => 'working-copies/test.pcap']);
+        Storage::disk('private')->put($evidence->working_copy_key, 'pcapdata');
         $tool = ForensicTool::query()->where('slug', 'tshark')->firstOrFail();
         $operation = ToolOperation::query()->where('tool_id', $tool->id)->where('operation_key', 'packet_summary')->firstOrFail();
         $operation->update(['max_output_bytes' => 10]);
@@ -101,5 +105,26 @@ class AnalysisJobAndAgentApiTest extends TestCase
         $this->withToken($firstToken)->postJson('/api/v1/agent/jobs/'.$jobId.'/result', $payload)->assertUnprocessable();
         $payload['parsed_result'] = [];
         $this->withToken($secondToken)->postJson('/api/v1/agent/jobs/'.$jobId.'/result', $payload)->assertForbidden();
+    }
+
+    public function test_analysis_job_requires_an_existing_working_copy_and_never_exposes_original_evidence(): void
+    {
+        Storage::fake('private');
+        $this->seed(ToolRegistrySeeder::class);
+        $investigator = User::factory()->create(['role' => 'investigator']);
+        $case = InvestigationCase::query()->create(['case_number' => 'ATH-WORKING-COPY', 'name' => 'Working copy required', 'created_by' => $investigator->id]);
+        $case->members()->attach($investigator->id, ['role_in_case' => 'lead']);
+        $evidence = Evidence::query()->create(['case_id' => $case->id, 'evidence_number' => 'EVD-WORKING-COPY', 'name' => 'PCAP', 'type' => 'pcap', 'storage_key' => 'evidence/original.pcap', 'size_bytes' => 8, 'status' => 'verified', 'uploaded_by' => $investigator->id]);
+        $tool = ForensicTool::query()->where('slug', 'tshark')->firstOrFail();
+        $operation = ToolOperation::query()->where('tool_id', $tool->id)->where('operation_key', 'packet_summary')->firstOrFail();
+
+        $this->actingAs($investigator)->postJson('/api/v1/cases/'.$case->id.'/analysis-jobs', ['evidence_id' => $evidence->id, 'tool_id' => $tool->id, 'operation_id' => $operation->id])->assertUnprocessable();
+        $evidence->update(['working_copy_key' => 'working-copies/EVD-WORKING-COPY/analysis.pcap']);
+        Storage::disk('private')->put($evidence->working_copy_key, 'pcapdata');
+        $jobId = $this->actingAs($investigator)->postJson('/api/v1/cases/'.$case->id.'/analysis-jobs', ['evidence_id' => $evidence->id, 'tool_id' => $tool->id, 'operation_id' => $operation->id])->assertAccepted()->json('public_id');
+        $token = 'working-copy-agent-token';
+        ForensicAgent::query()->create(['name' => 'caine-working-copy', 'token_hash' => Hash::make($token), 'status' => 'online']);
+
+        $this->withToken($token)->postJson('/api/v1/agent/jobs/claim')->assertOk()->assertJsonPath('job_id', $jobId)->assertJsonPath('evidence_reference', $evidence->working_copy_key);
     }
 }

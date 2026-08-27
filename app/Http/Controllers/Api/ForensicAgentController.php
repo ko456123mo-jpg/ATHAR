@@ -32,6 +32,7 @@ class ForensicAgentController extends Controller
             $job = AnalysisJob::query()->where('status', 'queued')->whereNull('agent_id')
                 ->whereHas('tool', fn ($query) => $query->where('enabled', true))
                 ->whereHas('operation', fn ($query) => $query->where('enabled', true))
+                ->whereHas('evidence', fn ($query) => $query->whereNotNull('working_copy_key'))
                 ->lockForUpdate()->first();
             if (! $job) {
                 return null;
@@ -51,7 +52,7 @@ class ForensicAgentController extends Controller
             'job_id' => $job->public_id,
             'tool_id' => $job->tool->slug,
             'operation_key' => $job->operation->operation_key,
-            'evidence_reference' => $job->evidence->working_copy_key ?? $job->evidence->storage_key,
+            'evidence_reference' => $job->evidence->working_copy_key,
             'parameters' => $job->parameters->first()?->parameters_json ?? [],
             'limits' => ['timeout_seconds' => $job->operation->timeout_seconds, 'max_output_bytes' => $job->operation->max_output_bytes],
         ]);
