@@ -12,7 +12,7 @@ ATHAR_REQUEST_TIMEOUT_SECONDS=20
 ATHAR_EXECUTION_TIMEOUT_SECONDS=300
 ATHAR_MAX_OUTPUT_BYTES=10485760
 ATHAR_WORKSPACE=/var/lib/athar-agent/work
-ATHAR_EVIDENCE_ROOT=/var/lib/athar/evidence
+ATHAR_EVIDENCE_ROOT=/mnt/athar-private
 ```
 
 The token is unique per agent, stored only in CAINE, and transmitted through the `Authorization: Bearer` header. ATHAR stores only a token hash. Rotate or revoke a token immediately when the CAINE snapshot is copied, a token may have leaked, or the virtual machine is decommissioned.
@@ -29,11 +29,11 @@ The v0.1 Agent performs one explicit outbound heartbeat, claim, execution, and r
 cd /opt/athar-agent
 ATHAR_BASE_URL=https://athar-host.example \
 ATHAR_AGENT_TOKEN='token-issued-by-athar' \
-ATHAR_EVIDENCE_ROOT=/var/lib/athar/evidence \
+ATHAR_EVIDENCE_ROOT=/mnt/athar-private \
 python3 -m athar_agent.client --once
 ```
 
-HTTPS is mandatory for a host-to-VirtualBox connection. The `--allow-insecure-localhost` option exists only for explicit same-host development at `127.0.0.1`; do not use it between the host and CAINE. The relative evidence reference returned by ATHAR must exist beneath `ATHAR_EVIDENCE_ROOT` and should refer to a controlled working copy rather than the immutable original.
+HTTPS is mandatory for a host-to-VirtualBox connection. The `--allow-insecure-localhost` option exists only for explicit same-host development at `127.0.0.1`; do not use it between the host and CAINE. Mount the host `storage/app/private` directory read-only at `/mnt/athar-private`; the returned relative reference begins with `evidence/` and must resolve to a controlled `working/` copy, never the immutable original. Follow `docs/CAINE_POC_CHECKLIST.md` before promoting a tool verification state.
 
 ## Safety conditions
 

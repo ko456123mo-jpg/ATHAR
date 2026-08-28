@@ -14,11 +14,14 @@ class ForensicAgentManagementController extends Controller
 {
     public function index(): JsonResponse
     {
+        $this->authorize('viewAny', ForensicAgent::class);
+
         return response()->json(ForensicAgent::query()->withCount('jobs')->latest()->paginate(20));
     }
 
     public function store(Request $request, AuditLogger $audit): JsonResponse
     {
+        $this->authorize('create', ForensicAgent::class);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:agents,name'],
             'hostname' => ['nullable', 'string', 'max:255'],
@@ -36,6 +39,7 @@ class ForensicAgentManagementController extends Controller
 
     public function rotateToken(Request $request, ForensicAgent $agent, AuditLogger $audit): JsonResponse
     {
+        $this->authorize('manage', $agent);
         abort_if($agent->status === 'retired', 422, 'Retired agents cannot receive a new token.');
         $bootstrapToken = Str::random(64);
         $agent->update(['token_hash' => Hash::make($bootstrapToken), 'status' => 'offline']);
@@ -46,6 +50,7 @@ class ForensicAgentManagementController extends Controller
 
     public function retire(Request $request, ForensicAgent $agent, AuditLogger $audit): JsonResponse
     {
+        $this->authorize('manage', $agent);
         abort_if($agent->status === 'retired', 422, 'Agent is already retired.');
         $agent->update(['status' => 'retired']);
         $audit->record($request->user(), 'agent.retired', $agent);

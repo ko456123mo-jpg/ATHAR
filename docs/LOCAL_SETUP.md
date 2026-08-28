@@ -1,40 +1,23 @@
-# Local Development Setup
+# ATHAR Host Setup
 
-This repository is designed to run on the host machine, while CAINE 14.0 remains in a separate VirtualBox virtual machine.
+ATHAR runs on the host machine; CAINE 14.0 remains isolated in a separate VirtualBox virtual machine. Install PHP 8.3+, Composer, MySQL 8-compatible storage, Redis, Node.js 22+, and a current browser. Do not commit real forensic evidence, database dumps, production tokens, or CAINE Agent tokens.
 
-## Host requirements
+Copy `.env.example` to `.env`, create an `athar` MySQL database and a least-privilege `athar_user`, then set the local credentials only in `.env`. The committed template now defaults to MySQL, Redis queue/cache, and the dedicated private disk. Generate the application key, install dependencies, migrate the schema, and seed the controlled tool catalogue.
 
-Install PHP 8.3 or newer, Composer, MySQL 8 or compatible MariaDB, Redis, Node.js 22 or newer, and a current browser. Do not store real forensic evidence, production tokens, or a CAINE Agent token in Git.
-
-## Laravel configuration
-
-Copy `.env.example` to `.env`, create a MySQL database named `athar`, and use a local Redis instance for queue work. The required local values are shown below; replace placeholder values only in `.env`, never in committed files.
-
-```dotenv
-APP_NAME=ATHAR
-APP_ENV=local
-APP_DEBUG=true
-APP_URL=http://localhost:8000
-
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=athar
-DB_USERNAME=athar_user
-DB_PASSWORD=change-this-locally
-
-QUEUE_CONNECTION=redis
-CACHE_STORE=redis
-SESSION_DRIVER=database
-REDIS_CLIENT=phpredis
-
-ATHAR_EVIDENCE_DISK=private
-ATHAR_AGENT_POLL_PATH=/api/v1/agent/jobs/claim
-ATHAR_AGENT_RESULT_LIMIT_BYTES=10485760
+```bash
+composer install
+npm install
+php artisan key:generate
+php artisan migrate --seed
+npm run build
 ```
 
-Install project dependencies with `composer install` and `npm install`, generate the application key using `php artisan key:generate`, run `php artisan migrate`, then use `php artisan queue:work redis` in a second terminal. The authenticated application must run separately from the queue worker.
+Run the authenticated web service, Redis queue worker, and Laravel scheduler as separate host-managed processes. In production, use your operating-system service manager rather than a terminal left open manually. The scheduler operates `athar:expire-analysis-jobs`; it transitions only overdue claimed/running work and writes custody/audit records.
 
-## VirtualBox network
+```bash
+php artisan serve
+php artisan queue:work redis --tries=1 --timeout=360
+php artisan schedule:work
+```
 
-Use a Host-only Adapter or Internal Network for the first integration. CAINE needs a route to the host ATHAR endpoint but ATHAR must not expose a public inbound port on CAINE. Use a clean CAINE snapshot before adding or testing the Agent, and use benign fixtures only during development.
+For local HTTP development, `SESSION_SECURE_COOKIE=false` is appropriate. For the host-to-CAINE TLS endpoint, set `APP_ENV=production`, `APP_DEBUG=false`, `SESSION_SECURE_COOKIE=true`, and use a TLS certificate trusted by CAINE. Use a Host-only Adapter or Internal Network: CAINE must be able to reach ATHAR, but ATHAR must not expose an inbound service on CAINE. The full one-shot CAINE proof-of-concept procedure is in [CAINE_POC_CHECKLIST.md](CAINE_POC_CHECKLIST.md).

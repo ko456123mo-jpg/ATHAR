@@ -9,17 +9,21 @@ use App\Models\ForensicTool;
 use App\Models\ToolCategory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 class ToolRegistryController extends Controller
 {
     public function categories(): JsonResponse
     {
+        $this->authorize('viewAny', ForensicTool::class);
+
         return response()->json(ToolCategory::query()->withCount('tools')->orderBy('name')->get());
     }
 
     public function storeCategory(Request $request, AuditLogger $audit): JsonResponse
     {
+        Gate::authorize('manage-tools');
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['nullable', 'alpha_dash', 'max:128', 'unique:tool_categories,slug'],
@@ -36,11 +40,14 @@ class ToolRegistryController extends Controller
 
     public function index(): JsonResponse
     {
+        $this->authorize('viewAny', ForensicTool::class);
+
         return response()->json(ForensicTool::query()->with(['category', 'operations', 'versions.agent'])->orderBy('name')->get());
     }
 
     public function store(Request $request, AuditLogger $audit): JsonResponse
     {
+        $this->authorize('create', ForensicTool::class);
         $data = $request->validate([
             'category_id' => ['required', 'exists:tool_categories,id'],
             'name' => ['required', 'string', 'max:255'],
@@ -60,6 +67,7 @@ class ToolRegistryController extends Controller
 
     public function storeOperation(Request $request, ForensicTool $tool, AuditLogger $audit): JsonResponse
     {
+        $this->authorize('manage', $tool);
         $data = $request->validate([
             'operation_key' => ['required', 'alpha_dash', 'max:128'],
             'evidence_types' => ['required', 'array', 'min:1'],
@@ -86,6 +94,7 @@ class ToolRegistryController extends Controller
 
     public function recordVerification(Request $request, ForensicTool $tool, ToolVerificationService $verification, AuditLogger $audit): JsonResponse
     {
+        $this->authorize('manage', $tool);
         $data = $request->validate([
             'verification_state' => ['required', 'in:configured,installed,executable,end_to_end_verified'],
             'agent_id' => ['nullable', 'exists:agents,id'],

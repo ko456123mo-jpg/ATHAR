@@ -29,6 +29,7 @@ class ForensicAgentManagementTest extends TestCase
 
         $this->actingAs($administrator)->postJson('/api/v1/agents/'.$agent->id.'/retire')->assertOk()->assertJsonPath('status', 'retired');
         $this->withToken($rotate->json('bootstrap_token'))->postJson('/api/v1/agent/heartbeat')->assertUnauthorized();
+        $this->actingAs($administrator)->postJson('/api/v1/agents/'.$agent->id.'/rotate-token')->assertUnprocessable();
         $this->assertDatabaseHas('audit_logs', ['action' => 'agent.retired', 'entity_id' => $agent->id]);
     }
 

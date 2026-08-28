@@ -4,9 +4,12 @@ namespace Tests\Feature\Forensics;
 
 use App\Domain\Forensics\Services\ChainOfCustodyService;
 use App\Models\Evidence;
+use App\Models\ForensicAgent;
+use App\Models\ForensicTool;
 use App\Models\InvestigationCase;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -19,6 +22,12 @@ class ForensicSchemaAndPolicyTest extends TestCase
         foreach (['cases', 'evidence', 'evidence_hashes', 'chain_of_custody', 'tools', 'agents', 'analysis_jobs', 'analysis_results', 'findings', 'timeline_events', 'reports', 'audit_logs'] as $table) {
             $this->assertTrue(Schema::hasTable($table), "Missing table: {$table}");
         }
+    }
+
+    public function test_private_evidence_disk_is_the_default_and_isolated_from_general_local_storage(): void
+    {
+        $this->assertSame('private', config('filesystems.default'));
+        $this->assertNotSame(Storage::disk('private')->path(''), Storage::disk('local')->path(''));
     }
 
     public function test_chain_of_custody_events_link_to_the_previous_hash(): void
@@ -52,5 +61,9 @@ class ForensicSchemaAndPolicyTest extends TestCase
 
         $this->assertTrue($administrator->can('manage-tools'));
         $this->assertFalse($investigator->can('manage-tools'));
+        $this->assertTrue($administrator->can('create', ForensicTool::class));
+        $this->assertTrue($administrator->can('create', ForensicAgent::class));
+        $this->assertFalse($investigator->can('create', ForensicTool::class));
+        $this->assertFalse($investigator->can('create', ForensicAgent::class));
     }
 }

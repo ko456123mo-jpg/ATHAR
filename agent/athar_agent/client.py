@@ -64,7 +64,7 @@ def main() -> int:
         timeout_seconds=int(os.environ.get("ATHAR_REQUEST_TIMEOUT_SECONDS", os.environ.get("ATHAR_API_TIMEOUT_SECONDS", "30"))),
         allow_insecure_localhost=args.allow_insecure_localhost,
     )
-    evidence_root = Path(os.environ.get("ATHAR_EVIDENCE_ROOT", "/var/lib/athar/evidence"))
+    evidence_root = Path(os.environ.get("ATHAR_EVIDENCE_ROOT", "/var/lib/athar/private"))
     return execute_once(api, evidence_root, os.environ.get("ATHAR_AGENT_NAME", socket.gethostname()))
 
 
