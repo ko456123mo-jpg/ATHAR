@@ -2,6 +2,8 @@
 
 namespace App\Policies;
 
+use App\Models\InvestigationCase;
+
 use App\Models\Evidence;
 use App\Models\User;
 
@@ -16,6 +18,6 @@ class EvidencePolicy
 
     public function download(User $user, Evidence $evidence): bool
     {
-        return $user->isAdministrator() || $evidence->investigationCase->members()->whereKey($user->getKey())->wherePivotIn('role_in_case', ['lead', 'member'])->exists();
+        return $user->isAdministrator() || $evidence->investigationCase->members()->whereKey($user->getKey())->wherePivotIn('role_in_case', InvestigationCase::EDITABLE_ROLES)->exists();
     }
 }

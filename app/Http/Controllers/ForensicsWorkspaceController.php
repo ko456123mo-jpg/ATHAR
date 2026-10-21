@@ -25,7 +25,7 @@ class ForensicsWorkspaceController extends Controller
             ->when(! $user->isAdministrator(), fn ($query) => $query->whereHas('members', fn ($members) => $members->whereKey($user->getKey())));
         $caseIds = (clone $caseScope)->select('id');
         $editableCaseScope = InvestigationCase::query()
-            ->when(! $user->isAdministrator(), fn ($query) => $query->whereHas('members', fn ($members) => $members->whereKey($user->getKey())->wherePivotIn('role_in_case', ['lead', 'member'])));
+            ->when(! $user->isAdministrator(), fn ($query) => $query->editableBy($user));
         $editableCaseIds = (clone $editableCaseScope)->select('id');
 
         $data = match ($section) {
