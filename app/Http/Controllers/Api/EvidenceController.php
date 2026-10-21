@@ -8,6 +8,7 @@ use App\Models\Evidence;
 use App\Models\InvestigationCase;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class EvidenceController extends Controller
 {
@@ -46,7 +47,11 @@ class EvidenceController extends Controller
         $this->authorize('download', $evidence);
         $evidenceService->recordDownload($evidence, $request->user());
 
-        return response()->download(storage_path('app/private/'.$evidence->storage_key), $evidence->original_filename ?? $evidence->name);
+        // التنزيل يجب أن يمر عبر القرص المسجّل مع الدليل نفسه، لا عبر مسار ثابت:
+        // الأدلة القديمة قد تكون على قرص آخر، والمسار الثابت يُلغي دعم تخزين S3/IaC.
+        $disk = $evidence->storage_disk ?: config('forensics.evidence_disk');
+
+        return Storage::disk($disk)->download($evidence->storage_key, $evidence->original_filename ?? $evidence->name);
     }
 
     public function custody(Evidence $evidence): JsonResponse

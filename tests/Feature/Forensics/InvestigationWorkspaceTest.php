@@ -27,4 +27,35 @@ class InvestigationWorkspaceTest extends TestCase
         $this->actingAs($investigator)->get('/workspace/cases')->assertOk()->assertSee('ATH-DASH-001')->assertDontSee('ATH-DASH-002');
         $this->actingAs($investigator)->get('/workspace/evidence')->assertOk()->assertSee('Assigned PCAP');
     }
+
+    public function test_lead_investigator_sees_the_evidence_upload_form_on_the_workspace(): void
+    {
+        $investigator = User::factory()->create(['role' => 'investigator']);
+        $case = InvestigationCase::query()->create(['case_number' => 'ATH-FORM-001', 'name' => 'Editable case', 'created_by' => $investigator->id]);
+        $case->members()->attach($investigator->id, ['role_in_case' => 'lead']);
+
+        // النموذج لا يظهر إلا إذا عُدّت القضية "قابلة للتحرير" للمستخدم الحالي.
+        $this->actingAs($investigator)
+            ->get('/workspace/evidence')
+            ->assertOk()
+            ->assertSee('تسجيل دليل جديد');
+
+        // القضية نفسها يجب أن تظهر كخيار داخل النموذج (أي أنها ضمن editableCases).
+        $this->actingAs($investigator)
+            ->get('/workspace/evidence')
+            ->assertOk()
+            ->assertSee('ATH-FORM-001');
+    }
+
+    public function test_viewer_membership_does_not_grant_editable_workspace_forms(): void
+    {
+        $investigator = User::factory()->create(['role' => 'investigator']);
+        $case = InvestigationCase::query()->create(['case_number' => 'ATH-FORM-002', 'name' => 'Read only case', 'created_by' => $investigator->id]);
+        $case->members()->attach($investigator->id, ['role_in_case' => 'observer']);
+
+        $this->actingAs($investigator)
+            ->get('/workspace/evidence')
+            ->assertOk()
+            ->assertDontSee('تسجيل دليل جديد');
+    }
 }
